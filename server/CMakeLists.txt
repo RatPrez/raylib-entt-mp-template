@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SERVER_SOURCES src/*.cpp)
+file(GLOB_RECURSE SERVER_SOURCES CONFIGURE_DEPENDS src/*.cpp)
 
 add_executable(server ${SERVER_SOURCES})
 

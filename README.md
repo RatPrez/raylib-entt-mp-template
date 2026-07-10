@@ -14,8 +14,8 @@ Needs GameNetworkingSockets installed (default `/opt/gns`, override with `GNS_RO
 
 ## Layout
 
-- `shared/` — `Packets.hpp` (packet structs, each with a `kType`) and `Net.hpp` (`eNetMode`, outbox message helpers)
-- `client/` — same layout as template-sp plus `NetContext` and a `Network` system
+- `shared/` — `Packets.hpp` (packet structs, each with a `kType`), `Net.hpp` (`eNetMode`, outbox message helpers), `Components.hpp` (`NetId`, `Position`, `InputState`), `Movement.hpp` (movement code used by both sides)
+- `client/` — same layout as template-sp plus `NetContext`, a `Network` system, and a `Movement` system that predicts the local player with the shared movement code; server `State` packets set a `TargetPosition` on remote players which an `Interp` system smoothly (but quickly) moves them toward, and only correct the local player (lerp, or snap when way off)
 - `server/` — headless entt loop, fixed tick: `NetReceive -> Tick -> NetSend`
 
 ## Networking

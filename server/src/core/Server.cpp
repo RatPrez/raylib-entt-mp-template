@@ -4,8 +4,8 @@
 
 #include <steam/isteamnetworkingutils.h>
 
-#include "Components.hpp"
 #include "core/Server.hpp"
+#include "shared/Components.hpp"
 #include "systems/Network.hpp"
 #include "systems/Tick.hpp"
 
@@ -21,7 +21,7 @@ namespace
         }
 
         const auto *pkt = static_cast<const CPacketInput *>(data);
-        auto &input = ctx.registry.get<CInput>(it->second);
+        auto &input = ctx.registry.get<InputState>(it->second);
         input.moveX = pkt->moveX;
         input.moveZ = pkt->moveZ;
     }
@@ -86,15 +86,15 @@ void Server::onConnect(HSteamNetConnection conn)
 
     uint32_t netId = m_ctx.nextNetId++;
     auto entity = m_ctx.registry.create();
-    m_ctx.registry.emplace<CNetId>(entity, netId);
-    m_ctx.registry.emplace<CTransform>(entity);
-    m_ctx.registry.emplace<CInput>(entity);
+    m_ctx.registry.emplace<NetId>(entity, netId);
+    m_ctx.registry.emplace<Position>(entity);
+    m_ctx.registry.emplace<InputState>(entity);
     net.connToEnt[conn] = entity;
 
     net.send(conn, SPacketWelcome{.netId = netId, .tickRate = m_tickRate});
 
-    for (auto [other, otherNetId, transform] : m_ctx.registry.view<CNetId, CTransform>().each()) {
-        net.send(conn, SPacketSpawn{.netId = otherNetId.value, .x = transform.x, .y = transform.y, .z = transform.z});
+    for (auto [other, otherNetId, position] : m_ctx.registry.view<NetId, Position>().each()) {
+        net.send(conn, SPacketSpawn{.netId = otherNetId.value, .x = position.x, .y = position.y, .z = position.z});
     }
 
     net.broadcast(SPacketSpawn{.netId = netId});
@@ -106,7 +106,7 @@ void Server::onDisconnect(HSteamNetConnection conn)
     auto &net = m_ctx.net;
     auto it = net.connToEnt.find(conn);
     if (it != net.connToEnt.end()) {
-        uint32_t netId = m_ctx.registry.get<CNetId>(it->second).value;
+        uint32_t netId = m_ctx.registry.get<NetId>(it->second).value;
         m_ctx.registry.destroy(it->second);
         net.connToEnt.erase(it);
         net.broadcast(SPacketDespawn{.netId = netId});

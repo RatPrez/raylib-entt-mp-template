@@ -1,23 +1,19 @@
 #pragma once
-#include <cstdint>
 #include <raylib.h>
 
-struct CNetId
-{
-    uint32_t value = 0;
-};
+#include "shared/Components.hpp"
 
-struct CTransform
-{
-    Vector3 position{};
-};
-
-struct CCube
+struct Cube
 {
     Vector3 size{1.f, 1.f, 1.f};
     Color color = RED;
 };
 
-struct CLocalPlayer
+struct LocalPlayer
 {
+};
+
+struct TargetPosition
+{
+    float x = 0.f, y = 0.f, z = 0.f;
 };

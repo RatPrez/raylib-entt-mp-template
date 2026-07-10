@@ -3,7 +3,7 @@
 
 void System::Tick(WorldContext &ctx)
 {
-    CPacketInput input{};
+    InputState input{};
     if (IsKeyDown(KEY_W)) {
         input.moveZ -= 1.f;
     }
@@ -17,12 +17,16 @@ void System::Tick(WorldContext &ctx)
         input.moveX += 1.f;
     }
 
-    if (ctx.net.state == eConnState::Connected) {
-        ctx.net.send(input, eNetMode::Unreliable);
+    for (auto [entity, localInput] : ctx.registry.view<InputState, LocalPlayer>().each()) {
+        localInput = input;
     }
 
-    for (auto [entity, transform] : ctx.registry.view<CTransform, CLocalPlayer>().each()) {
-        ctx.camera.target = transform.position;
+    if (ctx.net.state == eConnState::Connected) {
+        ctx.net.send(CPacketInput{.moveX = input.moveX, .moveZ = input.moveZ}, eNetMode::Unreliable);
+    }
+
+    for (auto [entity, position] : ctx.registry.view<Position, LocalPlayer>().each()) {
+        ctx.camera.target = {position.x, position.y, position.z};
     }
 
     UpdateCamera(&ctx.camera, CAMERA_ORBITAL);

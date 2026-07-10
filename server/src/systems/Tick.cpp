@@ -1,15 +1,13 @@
 #include "systems/Tick.hpp"
-#include "Components.hpp"
+#include "shared/Components.hpp"
+#include "shared/Movement.hpp"
 
 void System::Tick(WorldContext &ctx)
 {
-    constexpr float kMoveSpeed = 5.f;
+    for (auto [entity, netId, position, input] : ctx.registry.view<NetId, Position, InputState>().each()) {
+        ApplyMovement(position, input, ctx.tickDt);
 
-    for (auto [entity, netId, transform, input] : ctx.registry.view<CNetId, CTransform, CInput>().each()) {
-        transform.x += input.moveX * kMoveSpeed * ctx.tickDt;
-        transform.z += input.moveZ * kMoveSpeed * ctx.tickDt;
-
-        ctx.net.broadcast(SPacketState{.netId = netId.value, .x = transform.x, .y = transform.y, .z = transform.z},
+        ctx.net.broadcast(SPacketState{.netId = netId.value, .x = position.x, .y = position.y, .z = position.z},
                           eNetMode::Unreliable);
     }
 }

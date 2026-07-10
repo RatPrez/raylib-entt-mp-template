@@ -6,6 +6,8 @@
 #include "core/Client.hpp"
 #include "systems/Draw2D.hpp"
 #include "systems/Draw3D.hpp"
+#include "systems/Interp.hpp"
+#include "systems/Movement.hpp"
 #include "systems/Network.hpp"
 #include "systems/Tick.hpp"
 
@@ -21,11 +23,14 @@ namespace
         }
 
         auto entity = ctx.registry.create();
-        ctx.registry.emplace<CNetId>(entity, netId);
-        ctx.registry.emplace<CTransform>(entity);
-        ctx.registry.emplace<CCube>(entity, CCube{.color = netId == ctx.net.localNetId ? RED : BLUE});
+        ctx.registry.emplace<NetId>(entity, netId);
+        ctx.registry.emplace<Position>(entity);
+        ctx.registry.emplace<Cube>(entity, Cube{.color = netId == ctx.net.localNetId ? RED : BLUE});
         if (netId == ctx.net.localNetId) {
-            ctx.registry.emplace<CLocalPlayer>(entity);
+            ctx.registry.emplace<LocalPlayer>(entity);
+            ctx.registry.emplace<InputState>(entity);
+        } else {
+            ctx.registry.emplace<TargetPosition>(entity);
         }
         ctx.net.netToEnt[netId] = entity;
         return entity;
@@ -42,7 +47,10 @@ namespace
     {
         const auto *pkt = static_cast<const SPacketSpawn *>(data);
         auto entity = GetOrCreateActor(ctx, pkt->netId);
-        ctx.registry.get<CTransform>(entity).position = {pkt->x, pkt->y, pkt->z};
+        ctx.registry.get<Position>(entity) = {pkt->x, pkt->y, pkt->z};
+        if (auto *target = ctx.registry.try_get<TargetPosition>(entity)) {
+            *target = {pkt->x, pkt->y, pkt->z};
+        }
     }
 
     void HandleDespawn(WorldContext &ctx, const void *data)
@@ -61,7 +69,21 @@ namespace
     {
         const auto *pkt = static_cast<const SPacketState *>(data);
         auto entity = GetOrCreateActor(ctx, pkt->netId);
-        ctx.registry.get<CTransform>(entity).position = {pkt->x, pkt->y, pkt->z};
+        auto &position = ctx.registry.get<Position>(entity);
+
+        if (pkt->netId != ctx.net.localNetId) {
+            ctx.registry.get<TargetPosition>(entity) = {pkt->x, pkt->y, pkt->z};
+            return;
+        }
+
+        float dx = pkt->x - position.x;
+        float dz = pkt->z - position.z;
+        if (dx * dx + dz * dz > 1.f) {
+            position = {pkt->x, pkt->y, pkt->z};
+        } else {
+            position.x += dx * 0.1f;
+            position.z += dz * 0.1f;
+        }
     }
 } // namespace
 
@@ -149,6 +171,8 @@ void Client::run()
 
         System::NetReceive(m_ctx);
         System::Tick(m_ctx);
+        System::Movement(m_ctx);
+        System::Interp(m_ctx);
         System::NetSend(m_ctx);
 
         BeginDrawing();

@@ -1,17 +1,17 @@
 #pragma once
 #include <cstdint>
 
-struct CNetId
+struct NetId
 {
     uint32_t value = 0;
 };
 
-struct CTransform
+struct Position
 {
     float x = 0.f, y = 0.f, z = 0.f;
 };
 
-struct CInput
+struct InputState
 {
     float moveX = 0.f;
     float moveZ = 0.f;
