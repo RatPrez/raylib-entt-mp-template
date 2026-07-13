@@ -15,6 +15,8 @@ private:
     void onDisconnect(HSteamNetConnection conn);
     static void onNetStatusChanged(SteamNetConnectionStatusChangedCallback_t *info);
 
+    void tick();
+
     WorldContext m_ctx;
     uint32_t m_tickRate;
     bool m_running = false;

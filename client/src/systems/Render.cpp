@@ -1,7 +1,7 @@
-#include "systems/Draw3D.hpp"
+#include "systems/Render.hpp"
 #include "Components.hpp"
 
-void System::Draw3D(WorldContext &ctx)
+void System::Render(WorldContext &ctx)
 {
     DrawGrid(20, 1.f);
 

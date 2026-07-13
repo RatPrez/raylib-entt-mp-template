@@ -1,6 +1,6 @@
-#include "systems/Draw2D.hpp"
+#include "systems/ConnText.hpp"
 
-void System::Draw2D(WorldContext &ctx)
+void System::ConnText(WorldContext &ctx)
 {
     DrawFPS(10, 10);
 

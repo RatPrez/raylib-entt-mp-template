@@ -1,7 +1,7 @@
-#include "systems/Tick.hpp"
+#include "systems/Input.hpp"
 #include "Components.hpp"
 
-void System::Tick(WorldContext &ctx)
+void System::Input(WorldContext &ctx)
 {
     InputState input{};
     if (IsKeyDown(KEY_W)) {

@@ -6,26 +6,18 @@
 
 #include "core/Server.hpp"
 #include "shared/Components.hpp"
+#include "systems/Movement.hpp"
 #include "systems/Network.hpp"
-#include "systems/Tick.hpp"
 
 Server *Server::s_instance = nullptr;
 
-namespace
-{
-    void HandleInput(WorldContext &ctx, HSteamNetConnection conn, const void *data)
-    {
-        auto it = ctx.net.connToEnt.find(conn);
-        if (it == ctx.net.connToEnt.end()) {
-            return;
-        }
+void registerPacketHandlers(WorldContext &ctx);
 
-        const auto *pkt = static_cast<const CPacketInput *>(data);
-        auto &input = ctx.registry.get<InputState>(it->second);
-        input.moveX = pkt->moveX;
-        input.moveZ = pkt->moveZ;
-    }
-} // namespace
+// =================== GAME LOOPS ===================
+
+void Server::tick() { System::Movement(m_ctx); }
+
+// =================== MAIN ===================
 
 Server::Server(uint32_t tickRate) : m_tickRate(tickRate)
 {
@@ -63,7 +55,7 @@ void Server::setup()
     }
     m_ctx.net.pollGroup = m_ctx.net.sockets->CreatePollGroup();
 
-    m_ctx.net.reg<CPacketInput>(HandleInput);
+    registerPacketHandlers(m_ctx);
 
     printf("server listening on port %u, tick rate %u\n", kServerPort, m_tickRate);
 }
@@ -155,7 +147,7 @@ void Server::run()
         m_ctx.gameTime = std::chrono::duration<float>(tickStart - start).count();
 
         System::NetReceive(m_ctx);
-        System::Tick(m_ctx);
+        tick();
         System::NetSend(m_ctx);
 
         m_ctx.tick++;

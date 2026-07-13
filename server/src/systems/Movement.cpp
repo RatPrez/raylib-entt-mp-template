@@ -1,8 +1,8 @@
-#include "systems/Tick.hpp"
+#include "systems/Movement.hpp"
 #include "shared/Components.hpp"
 #include "shared/Movement.hpp"
 
-void System::Tick(WorldContext &ctx)
+void System::Movement(WorldContext &ctx)
 {
     for (auto [entity, netId, position, input] : ctx.registry.view<NetId, Position, InputState>().each()) {
         ApplyMovement(position, input, ctx.tickDt);

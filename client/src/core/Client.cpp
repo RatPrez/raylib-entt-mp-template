@@ -2,90 +2,35 @@
 
 #include <steam/isteamnetworkingutils.h>
 
-#include "Components.hpp"
 #include "core/Client.hpp"
-#include "systems/Draw2D.hpp"
-#include "systems/Draw3D.hpp"
+
+#include "systems/ConnText.hpp"
+#include "systems/Input.hpp"
 #include "systems/Interp.hpp"
 #include "systems/Movement.hpp"
 #include "systems/Network.hpp"
-#include "systems/Tick.hpp"
+#include "systems/Render.hpp"
 
 Client *Client::s_instance = nullptr;
 
-namespace
+void registerPacketHandlers(WorldContext &ctx);
+
+// =================== GAME LOOPS ===================
+
+void Client::tick()
 {
-    entt::entity GetOrCreateActor(WorldContext &ctx, uint32_t netId)
-    {
-        auto it = ctx.net.netToEnt.find(netId);
-        if (it != ctx.net.netToEnt.end()) {
-            return it->second;
-        }
+    System::Input(m_ctx);
+    System::Movement(m_ctx);
+    System::Interp(m_ctx);
+}
 
-        auto entity = ctx.registry.create();
-        ctx.registry.emplace<NetId>(entity, netId);
-        ctx.registry.emplace<Position>(entity);
-        ctx.registry.emplace<Cube>(entity, Cube{.color = netId == ctx.net.localNetId ? RED : BLUE});
-        if (netId == ctx.net.localNetId) {
-            ctx.registry.emplace<LocalPlayer>(entity);
-            ctx.registry.emplace<InputState>(entity);
-        } else {
-            ctx.registry.emplace<TargetPosition>(entity);
-        }
-        ctx.net.netToEnt[netId] = entity;
-        return entity;
-    }
+void Client::lateTick() {}
 
-    void HandleWelcome(WorldContext &ctx, const void *data)
-    {
-        const auto *pkt = static_cast<const SPacketWelcome *>(data);
-        ctx.net.localNetId = pkt->netId;
-        printf("welcome: netId %u, server tick rate %u\n", pkt->netId, pkt->tickRate);
-    }
+void Client::draw2D() { System::ConnText(m_ctx); }
 
-    void HandleSpawn(WorldContext &ctx, const void *data)
-    {
-        const auto *pkt = static_cast<const SPacketSpawn *>(data);
-        auto entity = GetOrCreateActor(ctx, pkt->netId);
-        ctx.registry.get<Position>(entity) = {pkt->x, pkt->y, pkt->z};
-        if (auto *target = ctx.registry.try_get<TargetPosition>(entity)) {
-            *target = {pkt->x, pkt->y, pkt->z};
-        }
-    }
+void Client::draw3D() { System::Render(m_ctx); }
 
-    void HandleDespawn(WorldContext &ctx, const void *data)
-    {
-        const auto *pkt = static_cast<const SPacketDespawn *>(data);
-        auto it = ctx.net.netToEnt.find(pkt->netId);
-        if (it == ctx.net.netToEnt.end()) {
-            return;
-        }
-
-        ctx.registry.destroy(it->second);
-        ctx.net.netToEnt.erase(it);
-    }
-
-    void HandleState(WorldContext &ctx, const void *data)
-    {
-        const auto *pkt = static_cast<const SPacketState *>(data);
-        auto entity = GetOrCreateActor(ctx, pkt->netId);
-        auto &position = ctx.registry.get<Position>(entity);
-
-        if (pkt->netId != ctx.net.localNetId) {
-            ctx.registry.get<TargetPosition>(entity) = {pkt->x, pkt->y, pkt->z};
-            return;
-        }
-
-        float dx = pkt->x - position.x;
-        float dz = pkt->z - position.z;
-        if (dx * dx + dz * dz > 1.f) {
-            position = {pkt->x, pkt->y, pkt->z};
-        } else {
-            position.x += dx * 0.1f;
-            position.z += dz * 0.1f;
-        }
-    }
-} // namespace
+// =================== MAIN ===================
 
 Client::Client()
 {
@@ -108,10 +53,7 @@ Client::Client()
     }
     m_ctx.net.sockets = SteamNetworkingSockets();
 
-    m_ctx.net.reg<SPacketWelcome>(HandleWelcome);
-    m_ctx.net.reg<SPacketSpawn>(HandleSpawn);
-    m_ctx.net.reg<SPacketDespawn>(HandleDespawn);
-    m_ctx.net.reg<SPacketState>(HandleState);
+    registerPacketHandlers(m_ctx);
 
     connect("127.0.0.1");
 }
@@ -169,20 +111,20 @@ void Client::run()
         m_ctx.dt = GetFrameTime();
         m_ctx.gameTime += m_ctx.dt;
 
-        System::NetReceive(m_ctx);
-        System::Tick(m_ctx);
-        System::Movement(m_ctx);
-        System::Interp(m_ctx);
-        System::NetSend(m_ctx);
+        System::NetReceive(m_ctx); // receive packets before anything
+        tick();
 
         BeginDrawing();
         ClearBackground(Color{24, 24, 28, 255});
 
         BeginMode3D(m_ctx.camera);
-        System::Draw3D(m_ctx);
+        draw3D();
         EndMode3D();
 
-        System::Draw2D(m_ctx);
+        draw2D();
         EndDrawing();
+
+        lateTick();
+        System::NetSend(m_ctx); // send packets last
     }
 }
